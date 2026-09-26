@@ -3,6 +3,17 @@
 Web is where most bug bounty findings and most junior pentest interviews live.
 The bug classes below are ordered roughly by how often they actually turn up.
 
+**Read this first if you prefer the browser.** Everything here has a
+DevTools or GUI route, and for access control and client-side bugs the browser
+is genuinely the better tool, because you are testing exactly what a user gets.
+The command line is the supplement, not the prerequisite. The full browser
+method is in [browser-and-gui.md](browser-and-gui.md), and it works as a
+complete assessment on its own.
+
+Two related sheets: [owasp-top-10.md](owasp-top-10.md) maps these classes to
+the current OWASP list, and [rce.md](rce.md) goes deep on the classes that end
+in code execution.
+
 ## Contents
 
 - [Ground rules](#ground-rules)
@@ -20,6 +31,7 @@ The bug classes below are ordered roughly by how often they actually turn up.
 - [Insecure deserialization](#insecure-deserialization)
 - [Business logic](#business-logic)
 - [Headers and configuration](#headers-and-configuration)
+- [Where each class sits in OWASP](#where-each-class-sits-in-owasp)
 
 ---
 
@@ -42,6 +54,11 @@ A parameter that can be proven injectable with `' OR '1'='1` does not need a
 
 Do all of this before touching a scanner. It takes ten minutes and it is where
 the findings are.
+
+**In the browser, first.** View source of every page, `robots.txt` in the
+address bar, DevTools open on the Network tab, and every form submitted once
+while you watch. That is fifteen minutes and it finds more than most scans.
+Full walkthrough in [browser-and-gui.md](browser-and-gui.md).
 
 ```bash
 curl -s https://<target>/robots.txt
@@ -81,12 +98,32 @@ gau --subs <domain> | sort -u > urls.txt
 waybackurls <domain> >> urls.txt
 ```
 
+**GUI equivalents.** View source (`Ctrl+U`) and the Elements panel instead of
+`wget`. The Wayback Machine's site search in a browser finds historical
+endpoints. **DirBuster** has a window where you set the URL, pick a wordlist,
+and sort by response size, which is how you spot the real hits among the
+redirects. Nuclei and httpx are terminal tools with readable output; there is no
+need to prefer them.
+
+```bash
+# One command that gets you most of the surface, when you want speed
+httpx -l subs.txt -sc -title -tech-detect -o alive.txt
+```
+
 ---
 
 ## JavaScript analysis
 
 The highest-value modern habit. Front-end source contains live endpoints,
 internal hostnames, third-party services, and frequently a key.
+
+**In the browser.** Sources panel → pretty-print → `Ctrl+F`. Or `Ctrl+Shift+F`
+from anywhere in DevTools to search every loaded file for `api`, `token`,
+`admin`, `flag`, `secret`. Then set a breakpoint on the login function and step
+through it to see exactly what is sent and what the server expects. This is
+faster than downloading and grepping, and it works on a minified bundle in one
+click. The Initiator tab in the Network panel takes you from "this parameter
+exists" to the line of code that sends it.
 
 ```bash
 # Download everything and search it
@@ -117,6 +154,12 @@ debug mode is a real pattern. Test for it.
 ---
 
 ## Authentication and session
+
+**In the browser.** Application tab → Cookies, Local Storage, Session Storage.
+That is where the token is, what it is called, and whether it is readable from
+JavaScript. A session cookie with no `HttpOnly` and a token in local storage
+with no expiry are both findings you get in five seconds this way, with no
+tools at all. See [browser-and-gui.md](browser-and-gui.md).
 
 ```bash
 # Inspect what the app actually issues you
@@ -185,6 +228,12 @@ frequently present, and they are what a client will actually pay to have fixed.
 
 ### Detection
 
+**In the browser.** Right-click the request in the Network tab → **Edit and
+Resend**, then add a quote and watch the response. That is the whole detection
+loop for a single endpoint, and it needs no terminal at all. **sqlmap** ships
+with a GTK interface (`sqlmap -t` or the `t` prompt) which is a friendlier way
+to drive the same tool while you are learning it.
+
 ```bash
 # Baseline
 curl -s "https://<target>/item?id=1"
@@ -240,6 +289,13 @@ More filter bypass technique is in [evasion-and-bypass.md](evasion-and-bypass.md
 
 Reflected, stored, and DOM-based. For a bounty, stored XSS in an
 authenticated area is usually worth more than reflected.
+
+**In the browser.** Type a unique marker into the field, submit, then look at
+the **Response** tab of the request. If the marker is there, read how it was
+encoded, because that tells you whether a payload will work. Then set a
+breakpoint in the Sources panel on the line that writes the value, and step
+through it to find which sink it reaches. For DOM XSS, the sink search below is
+how you find the candidate, and the breakpoint is how you confirm it.
 
 ```bash
 # Confirm a parameter reflects
@@ -330,6 +386,12 @@ require you to touch anything internal.
 ---
 
 ## File upload to code execution
+
+**In the browser.** Upload through the form, then read the response of the
+upload request in the Network tab. The path it returned is the answer to "where
+does this land", and it saves you guessing common directories. Then just open
+that path in the address bar. Full procedure, including magic-byte headers and
+per-stack extension lists, in [rce.md](rce.md).
 
 ```bash
 # What does the app tell you? The error message names the allowed types.
@@ -488,6 +550,14 @@ evidence and it does not disturb the application.
 The bugs that no scanner finds, because the code does exactly what it was
 written to do. You have to understand what the app is *for* and break that.
 
+**In the browser, this is entirely a browser job.** Business logic is the one
+class where the terminal actively gets in the way, because the point is to
+interact with the application as a person would. The technique is the Elements
+panel: find the value on the page, edit it, submit, and see whether the server
+honours it. Two accounts in two windows makes price, quantity, and ownership
+manipulation immediately visible. See
+[browser-and-gui.md](browser-and-gui.md).
+
 Things to test by hand:
 
 - **Price manipulation.** Change the price, quantity, or currency client-side. Does the server recalculate?
@@ -550,3 +620,29 @@ nuclei -l subs.txt -t takeovers/ -severity high
 Other common config findings: directory listing enabled, default credentials on
 an admin panel, a debug mode left on, verbose error pages leaking stack traces,
 and exposed admin interfaces that should not be reachable.
+
+---
+
+## Where each class sits in OWASP
+
+So you can answer "where does this go in the report" and match the current list.
+Full detail, with the 2025 categories, in [owasp-top-10.md](owasp-top-10.md).
+
+| Class here | OWASP 2025 |
+|---|---|
+| Broken access control, IDOR | A01 |
+| SSRF, CSRF, path traversal, forced browsing | A01 |
+| Directory listing, default credentials, exposed admin panels, debug mode | A02 |
+| Outdated dependencies, typosquats, unpinned CI/CD actions | A03 |
+| Weak hashing, `ECB`, disabled TLS verification, plaintext credentials | A04 |
+| SQL injection, command injection, SSTI, expression language injection, code injection | A05 |
+| Missing rate limits, unfixable business logic, absent security requirements | A06 |
+| Weak passwords, MFA gaps, broken reset flows, session fixation | A07 |
+| Insecure deserialisation, unverified webhooks, unsigned CI/CD updates | A08 |
+| No alerting, insufficient logging, missing incident visibility | A09 |
+| Unhandled errors exposing internals, fail-open exception paths | A10 |
+
+**A note on the 2025 reshuffle.** SSRF, CSRF, and path traversal are no longer
+separate categories; they are folded into A01 Broken Access Control. A "2025"
+report that still lists CSRF as its own top-ten item is out of date, and using
+the old framing makes the report look copied from a template.
