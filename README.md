@@ -34,6 +34,7 @@ assessment method on its own and it is the fastest route to real findings.
 | [source-code-review.md](source-code-review.md) | Reading code for vulnerabilities, authorisation model review, secrets, dependencies, IaC |
 | [mobile.md](mobile.md) | Android and iOS static analysis, IPC, WebView, certificate pinning |
 | [bug-bounty.md](bug-bounty.md) | Scope, recon at scale, triage, deduplication, reporting |
+| [books-and-resources.md](books-and-resources.md) | The books behind the sheets, free references worth more, and where to practise |
 
 ### Post-exploitation
 
@@ -60,6 +61,10 @@ the parts of the job that are not technical, and those are the parts that decide
 whether you are still working in three years. Then [recon.md](recon.md) and
 [checklists.md](checklists.md) end to end, then do a lab machine without
 peeking.
+
+[books-and-resources.md](books-and-resources.md) is the map to the reading and
+practice that goes with the sheets. Most of it is free, and the four books
+listed there are worth more than a course.
 
 **Comfortable with labs, want a job.**
 [browser-and-gui.md](browser-and-gui.md) first, because it is the highest-value
